@@ -1,10 +1,11 @@
+import pyspark_cassandra
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import explode
 from pyspark.sql.functions import split
 from pyspark.streaming import StreamingContext
-from pyspark.streaming.kafka import KafkaUtils
-from pyspark.sql.types import StructType
-from pyspark.sql import functions
+#from pyspark.sql.types import StructType
+from pyspark.sql.types import *
+from pyspark.sql import functions as f
 import time
 #import redis
 import config
@@ -29,56 +30,38 @@ def main():
 	  .format("kafka") \
 	  .option("kafka.bootstrap.servers", config.ip_address) \
 	  .option("subscribe", "my_topic") \
+          .option("startingOffsets","earliest") \
 	  .load()
 
         #Kafka streams from source are as "key":"value"..etc.
 	df.printSchema()
         
         #Select key:value and discard others
-	ds=df.selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
-        print('key:value {}'.format(t['value']))
-	
-	## Split the value and make a dataframe with right column names 
-	#t1 = t.select("value")
-	#t1.printSchema()
-	#split_col = functions.split(t['value'], ',')
-	#t1 = t1.withColumn('SourcePN', split_col.getItem(0))
-	#t1 = t1.withColumn('DestPN', split_col.getItem(1))
-	#t1 = t1.withColumn('Location', split_col.getItem(2))
-	#t1 = t1.withColumn('startT', split_col.getItem(3))
-	#t1 = t1.withColumn('endT', split_col.getItem(4))
-	#t1 = t1.withColumn('Type', split_col.getItem(5))
-	#t1 = t1.withColumn('Company', split_col.getItem(6))
-	#t1 = t1.drop('value')
-
-        ##Start Counting per second !!
-	#count_df=t1.groupBy("startT","Location").count()
-	#count_df = count_df.withColumn('key',\
-	#functions.concat(functions.col("startT"),functions.lit(','),functions.col("Location")))
-	##Kafka sink reads key:value.Make dataframe kafka stream sink compatible 
-        #count_df=count_df.selectExpr("key", "count as value")
-	
-        ##Send data to kafka sink 
-	#query = count_df \
-	#.selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)") \
-  	#.writeStream \
-  	#.format("kafka") \
-  	#.option("kafka.bootstrap.servers", "localhost:9092") \
-  	#.option("topic", "my-topic") \
-	#.option("checkpointLocation", "/home/ubuntu/insight-project-arnab/test/")\
-	#.outputMode("complete") \
-  	#.start()
+        # value schema: {"username":"xxx","message":"xxx","channel":"xxx","time":"xxx"}
+        schema = StructType().add("username",StringType()).add("message",StringType()).add("channel",StringType()).add("time",StringType())
+        ds = df.selectExpr("CAST(value AS STRING)") \
+               .select(f.from_json("value",schema).alias("message")) \
+               .select("message.*")
+        ds.printSchema()
+        query = ds.writeStream.outputMode("append").format("console").start()
+        query.awaitTermination()
+        	
+        # Do some simple count: unique user count per channel
+        user_count = ds.groupBy("channel","username").count()
 	
         # write to cassandra 
         # https://docs.datastax.com/en/dse/6.0/dse-dev/datastax_enterprise/spark/structuredStreaming.html
-        #query = fileStreamDf.writeStream\
+        #query = user_count.writeStream\
         # .option("checkpointLocation", '/home/ubuntu/twitchatter/test/')\
         # .format("org.apache.spark.sql.cassandra")\
         # .option("keyspace", "analytics")\
         # .option("table", "test")\
         # .start()
 
-	#query.awaitTermination()
+        #
+        #query = user_count.writeStream.foreach(x=> println(x).format("console").start()
+
+        query.awaitTermination()
 
 if __name__ == '__main__':
     main()

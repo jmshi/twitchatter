@@ -1,1 +1,1 @@
-/usr/local/spark/bin/spark-submit --master spark://ec2-18-205-221-147.compute-1.amazonaws.com:7077 --packages org.apache.spark:spark-sql-kafka-0-10_2.11:2.2.0 streaming.py
+/usr/local/spark/bin/spark-submit --master spark://ec2-18-205-221-147.compute-1.amazonaws.com:7077 --packages org.apache.spark:spark-sql-kafka-0-10_2.11:2.2.0,anguenot/pyspark-cassandra:0.9.0 --py-files /home/ubuntu/pyspark-cassandra-0.9.0.zip streaming.py

@@ -15,7 +15,7 @@ def get_active_channel(limit=2):
     #stream  = client.streams.get_live_streams(limit=100)
     #
     #return [item[u'channel'][u'display_name'].encode('ascii','ignore').lower() for item in stream]
-    return ['tsm_hamlinz','sodapoppin']
+    return ['dakotaz','cohhcarnage']
 
 
 class Producer(threading.Thread):

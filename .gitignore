@@ -1,6 +1,8 @@
+config.py
 *.pyc
 .coverage
 .cache/
+obsolete/
 
 build
 dist
