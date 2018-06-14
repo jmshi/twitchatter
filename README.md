@@ -1,4 +1,5 @@
-
-<img style="float: center;" src="img/banner.png">
+<p align="center">
+<img style="float" src="img/banner.png">
+</p>
 
 # Code Description
