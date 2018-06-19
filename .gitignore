@@ -3,6 +3,7 @@ config.py
 .coverage
 .cache/
 obsolete/
+test/*
 
 build
 dist
