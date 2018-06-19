@@ -1,5 +1,5 @@
-#from pyspark_cassandra 
-#from pyspark_cassandra import streaming
+import pyspark_cassandra
+from pyspark_cassandra import streaming
 #from cassandra.cluster import Cluster
 
 from pyspark import SparkContext
@@ -19,18 +19,23 @@ import config
 #                 pipe.zincrby("trends", str(data[2]), 1)
 #                 pipe.execute()
 
-def update(rdditer):
-        r = redis.Redis(host=config.redis_address, port=config.redis_port, db=config.dbcount)
-        for data in rdditer:
-            r.set('none',data)
+def storeToRedis(rdd):
+        r = redis.Redis(host=config.redis_address, port=config.redis_port, db=config.redis_dbcount)
+        for data in rdd.collect():
+            r.set(data[0],data[1])
+def storeToRedis2(tuple_in):
+        r = redis.Redis(host=config.redis_address, port=config.redis_port, db=config.redis_dbcount)
+        for data in tuple_in:
+            r.set(data[0],data[1])
 
 def main():
         sc = SparkContext(appName="Twitchatter")
         sc.setLogLevel('ERROR')
 
         ssc = StreamingContext(sc, 3) # every 3 seconds
-        ssc.checkpoint(config.spark_ckpt)
-        #ssc.checkpoint("file:///home/ubuntu/efs/")
+        # set checkpoint directory:use default fs protocol in core-site.xml
+        ssc.checkpoint("hdfs://"+config.spark_ckpt)
+        print("hdfs://"+config.spark_ckpt)
 
         zkQuorum = [config.zk_address]
         #zkQuorum = ','.join([ip+":2181" for ip in kafka_cluster])
@@ -41,28 +46,40 @@ def main():
         start = 0
         topicpartition = TopicAndPartition(topic[0],partition)
         
-        #kvs = KafkaUtils.createDirectStream(ssc,topic,{"metadata.broker.list": config.ip_address},
-        #        fromOffsets={topicpartition: int(start)})
-        kvs = KafkaUtils.createDirectStream(ssc,topic,{"metadata.broker.list": config.ip_address})
+        kvs = KafkaUtils.createDirectStream(ssc,topic,{"metadata.broker.list": config.ip_address},
+                fromOffsets={topicpartition: int(start)})
+        #kvs = KafkaUtils.createDirectStream(ssc,topic,{"metadata.broker.list": config.ip_address})
         #kvs.pprint()
+        kvs.checkpoint(600)
         
         parsed = kvs.map(lambda v: json.loads(v[1]))
-	parsed.pprint()
-        #parsed.foreachRDD(lambda rdd: rdd.foreachPartition(update))
-        def updateTotalCount(currentState,countState):
+	#parsed.pprint()
+
+        def updateTotalCountSingle(currentState,countState):
+            if countState is None:
+                countState = 0
+            return sum(currentState,countState)
+        def updateTotalCountDouble(currentState,countState):
             if countState is None:
                 countState = 0
             return sum(currentState,countState)
 
-        msg_counts = parsed.map(lambda v: (v[u'channel'],1)).reduceByKey(lambda x,y: x+y)
-        msg_counts.pprint()
-        total_msg_counts = parsed.map(lambda v: (v[u'channel'],1)).updateStateByKey(updateTotalCount)
+        #msg_counts = parsed.map(lambda v: (v[u'channel'],1)).reduceByKey(lambda x,y: x+y)
+        #msg_counts.pprint()
+
+        total_msg_counts = parsed.map(lambda v: (v[u'channel'],1)).updateStateByKey(updateTotalCountSingle)
+        print(total_msg_counts)
         total_msg_counts.pprint()
 
-        #user_counts = parsed.map(lambda v: (v[u'username'],1)).reduceByKey(lambda x,y: x+y)
-        #user_counts.pprint()
+        #total_user_counts = parsed.map(lambda v: (v[u'username'],1)).updateStateByKey(updateTotalCount)
+        #total_user_counts.pprint()
 
+        total_msg_counts.foreachRDD(storeToRedis)
 
+        #total_msg_counts.foreachRDD(lambda rdd: rdd.foreachPartition(storeToRedis))
+        #parsed.foreachRDD(lambda rdd: rdd.foreachPartition(storeToRedis))
+
+        
 
 
         ##counts = lines.map(lambda line: line.split(";")) \
