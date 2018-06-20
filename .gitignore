@@ -4,6 +4,7 @@ config.py
 .cache/
 obsolete/
 test/*
+*.log
 
 build
 dist

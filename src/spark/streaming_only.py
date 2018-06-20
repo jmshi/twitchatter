@@ -1,6 +1,6 @@
 import pyspark_cassandra
 from pyspark_cassandra import streaming
-#from cassandra.cluster import Cluster
+from cassandra.cluster import Cluster
 
 from pyspark import SparkContext
 from pyspark.streaming import StreamingContext
@@ -22,10 +22,6 @@ import config
 def storeToRedis(rdd):
         r = redis.Redis(host=config.redis_address, port=config.redis_port, db=config.redis_dbcount)
         for data in rdd.collect():
-            r.set(data[0],data[1])
-def storeToRedis2(tuple_in):
-        r = redis.Redis(host=config.redis_address, port=config.redis_port, db=config.redis_dbcount)
-        for data in tuple_in:
             r.set(data[0],data[1])
 
 def main():
@@ -55,11 +51,7 @@ def main():
         parsed = kvs.map(lambda v: json.loads(v[1]))
 	#parsed.pprint()
 
-        def updateTotalCountSingle(currentState,countState):
-            if countState is None:
-                countState = 0
-            return sum(currentState,countState)
-        def updateTotalCountDouble(currentState,countState):
+        def updateTotalCount(currentState,countState):
             if countState is None:
                 countState = 0
             return sum(currentState,countState)
@@ -67,26 +59,37 @@ def main():
         #msg_counts = parsed.map(lambda v: (v[u'channel'],1)).reduceByKey(lambda x,y: x+y)
         #msg_counts.pprint()
 
-        total_msg_counts = parsed.map(lambda v: (v[u'channel'],1)).updateStateByKey(updateTotalCountSingle)
+        total_msg_counts = parsed.map(lambda v: (v[u'channel'],1)).updateStateByKey(updateTotalCount)
         print(total_msg_counts)
         total_msg_counts.pprint()
 
         #total_user_counts = parsed.map(lambda v: (v[u'username'],1)).updateStateByKey(updateTotalCount)
         #total_user_counts.pprint()
 
+        # 1) dump data to redis
         total_msg_counts.foreachRDD(storeToRedis)
 
         #total_msg_counts.foreachRDD(lambda rdd: rdd.foreachPartition(storeToRedis))
         #parsed.foreachRDD(lambda rdd: rdd.foreachPartition(storeToRedis))
 
-        
+        # 2) dump data to cassandra
+        time_channel_user = parsed.map(lambda v: {"timestamp":v['time'],"channel":v[u'channel'],"username":v[u'username']})
+
+        # connect to cassandra cluster
+        cluster = Cluster([config.cass_seedip])
+        session = cluster.connect()
+
+        ## create and set cassandra keyspace to work
+        # only once. for the future, set check existence conditions 
+        #session.execute("CREATE KEYSPACE "+ config.cass_keyspace +" WITH replication = {'class':                 'SimpleStrategy', 'replication_factor': '3'};")
+        #session.set_keyspace(config.cass_keyspace)
+
+        ## create tables to insert data
+        #session.execute("CREATE TABLE time_channel_user (timestamp text, channel text, username text, primary    key(timestamp,username));")
+
+        time_channel_user.saveToCassandra(config.cass_keyspace,"time_channel_user")
 
 
-        ##counts = lines.map(lambda line: line.split(";")) \
-        ##.map(lambda y: (y[2],int(y[3]))) \
-        ##.reduceByKey(lambda a, b: a+b)
-
-        ##counts.foreachRDD(storeToRedis)
 
         ssc.start()
         ssc.awaitTermination()
