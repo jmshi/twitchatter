@@ -30,11 +30,11 @@ def main():
 
         ssc = StreamingContext(sc, 3) # every 3 seconds
         # set checkpoint directory:use default fs protocol in core-site.xml
-        ssc.checkpoint("hdfs://"+config.spark_ckpt)
-        print("hdfs://"+config.spark_ckpt)
+        #ssc.checkpoint("hdfs://"+config.spark_ckpt)
+        #print("hdfs://"+config.spark_ckpt)
 
         zkQuorum = [config.zk_address]
-        #zkQuorum = ','.join([ip+":2181" for ip in kafka_cluster])
+        ##zkQuorum = ','.join([ip+":2181" for ip in kafka_cluster])
         topic = [config.topic]
         print("{}{}".format(zkQuorum,topic))
        
@@ -42,52 +42,52 @@ def main():
         start = 0
         topicpartition = TopicAndPartition(topic[0],partition)
         
-        kvs = KafkaUtils.createDirectStream(ssc,topic,{"metadata.broker.list": config.ip_address},
-                fromOffsets={topicpartition: int(start)})
+        kvs = KafkaUtils.createDirectStream(ssc,topic,{"metadata.broker.list": config.ip_address})#,
+                #fromOffsets={topicpartition: int(start)})
         #kvs = KafkaUtils.createDirectStream(ssc,topic,{"metadata.broker.list": config.ip_address})
-        #kvs.pprint()
-        kvs.checkpoint(600)
+        kvs.pprint()
+        #kvs.checkpoint(600)
         
-        parsed = kvs.map(lambda v: json.loads(v[1]))
-	#parsed.pprint()
+        #parsed = kvs.map(lambda v: json.loads(v[1]))
+	##parsed.pprint()
 
-        def updateTotalCount(currentState,countState):
-            if countState is None:
-                countState = 0
-            return sum(currentState,countState)
+        #def updateTotalCount(currentState,countState):
+        #    if countState is None:
+        #        countState = 0
+        #    return sum(currentState,countState)
 
-        #msg_counts = parsed.map(lambda v: (v[u'channel'],1)).reduceByKey(lambda x,y: x+y)
-        #msg_counts.pprint()
+        ##msg_counts = parsed.map(lambda v: (v[u'channel'],1)).reduceByKey(lambda x,y: x+y)
+        ##msg_counts.pprint()
 
-        total_msg_counts = parsed.map(lambda v: (v[u'channel'],1)).updateStateByKey(updateTotalCount)
-        print(total_msg_counts)
-        total_msg_counts.pprint()
+        #total_msg_counts = parsed.map(lambda v: (v[u'channel'],1)).updateStateByKey(updateTotalCount)
+        #print(total_msg_counts)
+        #total_msg_counts.pprint()
 
-        #total_user_counts = parsed.map(lambda v: (v[u'username'],1)).updateStateByKey(updateTotalCount)
-        #total_user_counts.pprint()
+        ##total_user_counts = parsed.map(lambda v: (v[u'username'],1)).updateStateByKey(updateTotalCount)
+        ##total_user_counts.pprint()
 
-        # 1) dump data to redis
-        total_msg_counts.foreachRDD(storeToRedis)
-
-        #total_msg_counts.foreachRDD(lambda rdd: rdd.foreachPartition(storeToRedis))
-        #parsed.foreachRDD(lambda rdd: rdd.foreachPartition(storeToRedis))
-
-        # 2) dump data to cassandra
-        time_channel_user = parsed.map(lambda v: {"timestamp":v['time'],"channel":v[u'channel'],"username":v[u'username']})
-
-        # connect to cassandra cluster
-        cluster = Cluster([config.cass_seedip])
-        session = cluster.connect()
-
-        ## create and set cassandra keyspace to work
-        # only once. for the future, set check existence conditions 
-        #session.execute("CREATE KEYSPACE "+ config.cass_keyspace +" WITH replication = {'class':                 'SimpleStrategy', 'replication_factor': '3'};")
-        #session.set_keyspace(config.cass_keyspace)
-
-        ## create tables to insert data
-        #session.execute("CREATE TABLE time_channel_user (timestamp text, channel text, username text, primary    key(timestamp,username));")
-
-        time_channel_user.saveToCassandra(config.cass_keyspace,"time_channel_user")
+#        # 1) dump data to redis
+#        total_msg_counts.foreachRDD(storeToRedis)
+#
+#        #total_msg_counts.foreachRDD(lambda rdd: rdd.foreachPartition(storeToRedis))
+#        #parsed.foreachRDD(lambda rdd: rdd.foreachPartition(storeToRedis))
+#
+#        # 2) dump data to cassandra
+#        time_channel_user = parsed.map(lambda v: {"timestamp":v['time'],"channel":v[u'channel'],"username":v[u'username']})
+#
+#        # connect to cassandra cluster
+#        cluster = Cluster([config.cass_seedip])
+#        session = cluster.connect()
+#
+#        ## create and set cassandra keyspace to work
+#        # only once. for the future, set check existence conditions 
+#        #session.execute("CREATE KEYSPACE "+ config.cass_keyspace +" WITH replication = {'class':                 'SimpleStrategy', 'replication_factor': '3'};")
+#        #session.set_keyspace(config.cass_keyspace)
+#
+#        ## create tables to insert data
+#        #session.execute("CREATE TABLE time_channel_user (timestamp text, channel text, username text, primary    key(timestamp,username));")
+#
+#        time_channel_user.saveToCassandra(config.cass_keyspace,"time_channel_user")
 
 
 

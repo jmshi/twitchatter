@@ -18,7 +18,7 @@ def get_active_channel(limit=2):
     channel_list = [item[u'channel'][u'display_name'].encode('ascii','ignore').lower() for item in stream]
     print("connecting to channels:{}".format(channel_list[0:2]))
     #return ['louismccabe64','dakotaz']
-    return channel_list[0:2]
+    return channel_list[0:limit]
     #return ['ninja','dreamhackcs']
 
 
@@ -33,7 +33,7 @@ class Producer(threading.Thread):
 
     def run(self):
         self.producer = KafkaProducer(bootstrap_servers=config.ip_address)
-        n_channel = 2
+        n_channel = 4
         channel_list = get_active_channel(limit=n_channel)
         chatstream_list = []
         for channel in channel_list:

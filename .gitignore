@@ -5,6 +5,7 @@ config.py
 obsolete/
 test/*
 *.log
+metastore_db/
 
 build
 dist
