@@ -30,7 +30,7 @@ def main():
 
         ssc = StreamingContext(sc, 3) # every 3 seconds
         # set checkpoint directory:use default fs protocol in core-site.xml
-        #ssc.checkpoint("hdfs://"+config.spark_ckpt)
+        ssc.checkpoint("hdfs://"+config.spark_ckpt)
         #print("hdfs://"+config.spark_ckpt)
 
         zkQuorum = [config.zk_address]
@@ -42,26 +42,26 @@ def main():
         start = 0
         topicpartition = TopicAndPartition(topic[0],partition)
         
-        kvs = KafkaUtils.createDirectStream(ssc,topic,{"metadata.broker.list": config.ip_address})#,
-                #fromOffsets={topicpartition: int(start)})
+        kvs = KafkaUtils.createDirectStream(ssc,topic,{"metadata.broker.list": config.ip_address},
+                fromOffsets={topicpartition: int(start)})
         #kvs = KafkaUtils.createDirectStream(ssc,topic,{"metadata.broker.list": config.ip_address})
         kvs.pprint()
-        #kvs.checkpoint(600)
+        kvs.checkpoint(600)
         
-        #parsed = kvs.map(lambda v: json.loads(v[1]))
+        parsed = kvs.map(lambda v: json.loads(v[1]))
 	##parsed.pprint()
 
-        #def updateTotalCount(currentState,countState):
-        #    if countState is None:
-        #        countState = 0
-        #    return sum(currentState,countState)
+        def updateTotalCount(currentState,countState):
+            if countState is None:
+                countState = 0
+            return sum(currentState,countState)
 
         ##msg_counts = parsed.map(lambda v: (v[u'channel'],1)).reduceByKey(lambda x,y: x+y)
         ##msg_counts.pprint()
 
-        #total_msg_counts = parsed.map(lambda v: (v[u'channel'],1)).updateStateByKey(updateTotalCount)
-        #print(total_msg_counts)
-        #total_msg_counts.pprint()
+        total_msg_counts = parsed.map(lambda v: (v[u'channel'],1)).updateStateByKey(updateTotalCount)
+        print(total_msg_counts)
+        total_msg_counts.pprint()
 
         ##total_user_counts = parsed.map(lambda v: (v[u'username'],1)).updateStateByKey(updateTotalCount)
         ##total_user_counts.pprint()
