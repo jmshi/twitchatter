@@ -12,7 +12,7 @@ root_dir=/usr/local/kafka/
 ${root_dir}/bin/kafka-topics.sh --zookeeper localhost:2181 --delete --topic ${topic}
 
 
-${root_dir}/bin/kafka-topics.sh --create --zookeeper localhost:2181 --partitions 18 --replication-factor 2 --topic ${topic}
+${root_dir}/bin/kafka-topics.sh --create --zookeeper localhost:2181 --partitions 18 --replication-factor 2 --topic ${topic} --config retention.ms=604800000
 
 #python producer.py &
 python multiproducer.py &

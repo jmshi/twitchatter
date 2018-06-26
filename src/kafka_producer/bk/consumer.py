@@ -13,7 +13,7 @@ import config
 class Consumer(object):
 
     def __init__(self, addr):
-        self.consumer = KafkaConsumer(bootstrap_servers=addr,auto_offset_reset='earliest',consumer_timeout_ms=5000)
+        self.consumer = KafkaConsumer(bootstrap_servers=addr) #,auto_offset_reset='earliest',consumer_timeout_ms=5000)
         self.consumer.subscribe([config.topic])
         print("reach consumer init")
    

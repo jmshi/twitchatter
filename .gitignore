@@ -4,6 +4,7 @@ config.py
 .cache/
 obsolete/
 test/*
+data/emotes_set/*
 *.log
 metastore_db/
 
